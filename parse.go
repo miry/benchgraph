@@ -8,28 +8,62 @@ import (
 
 // Coder should use following naming convention for Benchmark functions
 // Naming convention: Benchmark[Function_name]_[Function_argument](b *testing.B)
-var re *regexp.Regexp = regexp.MustCompile(`Benchmark([a-zA-Z0-9/]+)_([_a-zA-Z0-9]+)-([0-9]+)$`)
+var defaultFunctionSignaturePattern = regexp.MustCompile(
+	`Benchmark(?P<functionName>[a-zA-Z0-9/]+)_(?P<functionArguments>[_a-zA-Z0-9]+)-(?P<numberOfThreads>[0-9]+)$`,
+)
 
-// Storage for Func(Arg)=Result relations
-type BenchArgSet map[string]float64
-type BenchNameSet map[string]BenchArgSet
+type (
+	// Storage for Func(Arg)=Result relations
+	BenchArgSet             map[string]float64
+	BenchNameSet            map[string]BenchArgSet
+	parsedFunctionSignature struct {
+		name            string
+		arg             string
+		numberOfThreads int
+	}
+)
 
-// parseNameArgThread parses function name, argument and number of threads from benchmark output.
-func parseNameArgThread(line string) (name string, arg string, c int, err error) {
-
-	arr := re.FindStringSubmatch(line)
+// parseFunctionSignature parses function name, argument and number of threads from benchmark output.
+func parseFunctionSignature(expression *regexp.Regexp, line string) (*parsedFunctionSignature, error) {
+	match := expression.FindStringSubmatch(line)
 
 	// we expect 4 columns
-	if len(arr) != 4 {
-		return "", "", 0, errors.New("Can't parse benchmark result")
+	if len(match) != 4 {
+		return nil, errors.New("Can't parse benchmark result")
 	}
 
-	name, arg = arr[1], arr[2]
+	expressionCaptureGroups := make(map[string]string)
 
-	c, err = strconv.Atoi(arr[3])
+	for i, name := range expression.SubexpNames() {
+		expressionCaptureGroups[name] = match[i]
+	}
+
+	_, ok := expressionCaptureGroups["functionName"]
+	if !ok {
+		return nil, errors.New("No `functionName` capture group in provided expression")
+	}
+
+	_, ok = expressionCaptureGroups["functionArguments"]
+	if !ok {
+		return nil, errors.New("No `functionArguments` capture group in provided expression")
+	}
+
+	_, ok = expressionCaptureGroups["numberOfThreads"]
+	if !ok {
+		return nil, errors.New("No `numberOfThreads` capture group in provided expression")
+	}
+
+	numberOfThreads, err := strconv.Atoi(expressionCaptureGroups["numberOfThreads"])
 	if err != nil {
-		return "", "", 0, errors.New("Can't parse benchmark result")
+		return nil,
+			errors.New(
+				"Can't parse `numberOfThreads` string as integer with provided expression result",
+			)
 	}
 
-	return name, arg, c, nil
+	return &parsedFunctionSignature{
+		name:            expressionCaptureGroups["functionName"],
+		arg:             expressionCaptureGroups["functionArguments"],
+		numberOfThreads: numberOfThreads,
+	}, nil
 }

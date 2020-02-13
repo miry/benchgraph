@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 
 	"github.com/fatih/color"
 	"golang.org/x/tools/benchmark/parse"
@@ -36,7 +37,6 @@ func uploadData(apiUrl, data, title string) (string, error) {
 }
 
 func main() {
-
 	var oBenchNames, oBenchArgs stringList
 
 	// graph elements will be ordered as in benchmark output by default - unless the order was specified here
@@ -44,6 +44,14 @@ func main() {
 	flag.Var(&oBenchArgs, "oba", "comma-separated list of benchmark arguments")
 	title := flag.String("title", "Graph: Benchmark results in ns/op", "title of a graph")
 	apiUrl := flag.String("apiurl", "http://benchgraph.codingberg.com", "url to server api")
+	functionSignaturePattern := flag.String(
+		"function-signature-pattern",
+		defaultFunctionSignaturePattern.String(),
+		fmt.Sprintf(
+			"regex expression to extract function test signature, default: %s",
+			defaultFunctionSignaturePattern,
+		),
+	)
 	flag.Parse()
 
 	var skipBenchNamesParsing, skipBenchArgsParsing bool
@@ -53,6 +61,17 @@ func main() {
 	}
 	if oBenchArgs.Len() > 0 {
 		skipBenchArgsParsing = true
+	}
+
+	if len(*functionSignaturePattern) < 1 {
+		fmt.Fprintf(os.Stderr, "empty `test-name-expression` provided")
+		os.Exit(1)
+	}
+
+	functionSignaturePatternRegex, err := regexp.Compile(*functionSignaturePattern)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "invalid regex `test-name-expression` provided. Err: %s", err)
+		os.Exit(1)
 	}
 
 	benchResults := make(BenchNameSet)
@@ -73,26 +92,26 @@ func main() {
 
 		// read bench name and arguments
 		if b != nil {
-			name, arg, _, err := parseNameArgThread(b.Name)
+			parsedFunctionSignature, err := parseFunctionSignature(functionSignaturePatternRegex, b.Name)
 			if err != nil {
 				mark = red("!")
 				fmt.Printf("%s %s\n", mark, line)
 				continue
 			}
 
-			if !skipBenchNamesParsing && !oBenchNames.stringInList(name) {
-				oBenchNames.Add(name)
+			if !skipBenchNamesParsing && !oBenchNames.stringInList(parsedFunctionSignature.name) {
+				oBenchNames.Add(parsedFunctionSignature.name)
 			}
 
-			if !skipBenchArgsParsing && !oBenchArgs.stringInList(arg) {
-				oBenchArgs.Add(arg)
+			if !skipBenchArgsParsing && !oBenchArgs.stringInList(parsedFunctionSignature.arg) {
+				oBenchArgs.Add(parsedFunctionSignature.arg)
 			}
 
-			if _, ok := benchResults[name]; !ok {
-				benchResults[name] = make(BenchArgSet)
+			if _, ok := benchResults[parsedFunctionSignature.name]; !ok {
+				benchResults[parsedFunctionSignature.name] = make(BenchArgSet)
 			}
 
-			benchResults[name][arg] = b.NsPerOp
+			benchResults[parsedFunctionSignature.name][parsedFunctionSignature.arg] = b.NsPerOp
 		}
 
 		fmt.Printf("%s %s\n", mark, line)
@@ -108,8 +127,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Println()
-	fmt.Println("Waiting for server response ...")
+	fmt.Println("\nWaiting for server response ...")
 
 	data := graphData(benchResults, oBenchNames, oBenchArgs)
 
@@ -120,9 +138,6 @@ func main() {
 	}
 
 	fmt.Println("=========================================")
-	fmt.Println()
 	fmt.Println(graphUrl)
-	fmt.Println()
-	fmt.Println("=========================================")
-
+	fmt.Println("\n=========================================")
 }
