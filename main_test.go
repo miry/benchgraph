@@ -21,15 +21,25 @@ var bTests = []struct {
 func TestParser(t *testing.T) {
 	for _, tt := range bTests {
 		b, _ := parse.ParseLine(tt.line)
-		name, arg, _, _ := parseNameArgThread(b.Name)
-		if name != tt.name {
-			t.Errorf("parseNameArgThread(%s): expected %s, actual %s", b.Name, tt.name, name)
+		functionSig, _ := parseFunctionSignature(defaultFunctionSignaturePattern, b.Name)
+		if functionSig.name != tt.name {
+			t.Errorf(
+				"parseFunctionSignature(%s): expected %s, actual %s",
+				b.Name,
+				tt.name,
+				functionSig.name,
+			)
 		}
-		if arg != tt.arg {
-			t.Errorf("parseNameArgThread(%s): expected %s, actual %s", b.Name, tt.arg, arg)
+		if functionSig.arg != tt.arg {
+			t.Errorf(
+				"parseFunctionSignature(%s): expected %s, actual %s",
+				b.Name,
+				tt.arg,
+				functionSig.arg,
+			)
 		}
 		if b.NsPerOp != tt.nsperop {
-			t.Errorf("parseNameArgThread(%s): expected %f, actual %f", b.Name, tt.nsperop, b.NsPerOp)
+			t.Errorf("parseFunctionSignature(%s): expected %f, actual %f", b.Name, tt.nsperop, b.NsPerOp)
 		}
 	}
 }

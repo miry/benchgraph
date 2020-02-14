@@ -59,13 +59,16 @@ When you see red marks `-` or `?`, it means, either you do not follow the **nami
 benchgraph -help
 Usage of benchgraph:
   -apiurl string
-    	url to server api (default "http://benchgraph.codingberg.com")
+        url to server api (default "http://benchgraph.codingberg.com")
+  -function-signature-pattern string
+        regex expression to extract function test signature, default: Benchmark(?P<functionName>[a-zA-Z0-9/]+)_(?P<functionArguments>[_a-zA-Z0-9]+)-(?P<numberOfThreads>[0-9]+)$ (default "Benchmark(?P<functionName>[a-zA-Z0-9/]+)_(?P<functionArguments>[_a-zA-Z0-9]+)-(?P<numberOfThreads>[0-9]+)$")
   -oba value
-    	comma-separated list of benchmark arguments (default [])
+        comma-separated list of benchmark arguments
   -obn value
-    	comma-separated list of benchmark names (default [])
+        comma-separated list of benchmark names
   -title string
-    	title of a graph (default "Graph: Benchmark results in ns/op")
+        title of a graph (default "Graph: Benchmark results in ns/op")
+
 ```
 
 You can filter out which functions and against which arguments you want to display on graph by passing `-obn` and `-oba` arguments. This can be very handy in case when performing many benchmark tests.
